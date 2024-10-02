@@ -18,3 +18,7 @@ We use [conventional-commits](https://www.conventionalcommits.org/en/v1.0.0/) fo
 ## Coding Style
 
 We enforce consistent coding styles using prettier (`.prettierrc` config file).
+
+## Client side caching
+
+This application leverages the `localStorage` to handle a short-term cache to avoid making simultaneous calls to the API. It is guaranteed that one network request is done at a time when navigating to the `/appWithoutSSRData` route.

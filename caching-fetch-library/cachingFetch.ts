@@ -3,9 +3,15 @@
 // However, you must not change the surface API presented from this file,
 // and you should not need to change any other files in the project to complete the challenge
 
+import React from 'react';
+
+import { getValidClientCache, setClientCache } from './clientCache';
+
+import { Person } from './types';
+
 type UseCachingFetch = (url: string) => {
   isLoading: boolean;
-  data: unknown;
+  data: Person[] | null;
   error: Error | null;
 };
 
@@ -28,12 +34,50 @@ type UseCachingFetch = (url: string) => {
  *
  */
 export const useCachingFetch: UseCachingFetch = (url) => {
+  const [data, setData] = React.useState<Person[] | null>(null);
+  const [error, setError] = React.useState<Error | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const fetchData = React.useCallback(async () => {
+    setIsLoading(true);
+
+    const cacheData = getValidClientCache(url);
+    if (cacheData) {
+      setData(cacheData);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      setData(data);
+      setClientCache(url, data);
+    } catch (error) {
+      if (typeof error === 'string') {
+        setError(new Error(error));
+        return;
+      }
+
+      if (error instanceof Error) {
+        setError(error);
+        return;
+      }
+
+      setError(new Error('An unknown error occurred'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [url]);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   return {
-    data: null,
-    isLoading: false,
-    error: new Error(
-      'UseCachingFetch has not been implemented, please read the instructions in DevTask.md',
-    ),
+    data,
+    isLoading,
+    error,
   };
 };
 
