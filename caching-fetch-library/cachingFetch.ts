@@ -10,6 +10,16 @@ import { getValidClientCache, setClientCache } from './clientCache';
 import { CacheDataServer, Person } from './types';
 import { SS_CACHE_EXPIRY } from './constants';
 
+type CustomCache = {
+  [key: string]: CacheDataServer;
+};
+
+declare global {
+  interface Window {
+    customCache: CustomCache;
+  }
+}
+
 type UseCachingFetch = (url: string) => {
   isLoading: boolean;
   data: Person[] | null;
@@ -58,6 +68,22 @@ export const useCachingFetch: UseCachingFetch = (url) => {
   const [data, setData] = React.useState<Person[] | null>(null);
   const [error, setError] = React.useState<Error | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  if (typeof window !== 'undefined') {
+    if (window.customCache) {
+      const cache = window.customCache;
+      if (cache[url]) {
+        const cacheData = cache[url];
+        if (Date.now() < cacheData.expiresAt) {
+          return {
+            data: cacheData.data,
+            isLoading: false,
+            error: cacheData.error,
+          };
+        }
+      }
+    }
+  }
 
   const memoryCacheData = getMemoryCache(url);
   if (memoryCacheData) {
@@ -172,13 +198,25 @@ export const preloadCachingFetch = async (url: string): Promise<void> => {
  * 4. This file passes a type-check.
  *
  */
-export const serializeCache = (): string => '';
+export const serializeCache = (): string => {
+  return JSON.stringify(memoryCache);
+};
 
-export const initializeCache = (serializedCache: string): void => {};
+export const initializeCache = (serializedCache: string): void => {
+  try {
+    const cache = JSON.parse(serializedCache);
+    window.customCache = cache;
+  } catch (error) {
+    console.error('Error initializing cache', error);
+  }
+};
 
 export const wipeCache = (): void => {
-  if (typeof window !== 'undefined') localStorage.clear();
   Object.keys(memoryCache).forEach((key) => {
     delete memoryCache[key];
   });
+  if (typeof window !== 'undefined') {
+    localStorage.clear();
+    window.customCache = {};
+  }
 };

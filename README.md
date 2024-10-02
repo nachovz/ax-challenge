@@ -26,3 +26,12 @@ This application leverages the `localStorage` to handle a short-term cache to av
 ## Server side caching
 
 This aplication uses the runtime memory to handle a short-term cache consumed by the Server Side execution of the `useCachingFetch` hook. It is guaranteed that the route `/appWithSSRData` will render successfully even without javascript enabled.
+
+## Cache Serialization
+
+This application serializes Server Sided cache data using `json.stringify`, it then uses `json.parse` and stores the initialized data into the `window` object on the client side. It os guaranteed that no network calls are made when navigating to the route `/appWithSSRData` and the same route renders successfully without javascript enabled.
+
+## What's next?
+
+- There's room to improve both Client-side and Server-side caching. In the client side it could be worth it to create a more robust data structure for the cache object or use indexedDB. On the server side, we could implement an instantiable class to centralized the cache functionality.
+- Testing: this project could be more robust with some unit testing.
