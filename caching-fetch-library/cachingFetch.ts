@@ -7,12 +7,33 @@ import React from 'react';
 
 import { getValidClientCache, setClientCache } from './clientCache';
 
-import { Person } from './types';
+import { CacheDataServer, Person } from './types';
+import { SS_CACHE_EXPIRY } from './constants';
 
 type UseCachingFetch = (url: string) => {
   isLoading: boolean;
   data: Person[] | null;
   error: Error | null;
+};
+
+const memoryCache: Record<string, CacheDataServer> = {};
+
+export const getMemoryCache = (key: string): false | CacheDataServer => {
+  const cacheData = memoryCache[key];
+  if (!cacheData) {
+    return false;
+  }
+
+  if (Date.now() > cacheData.expiresAt) {
+    delete memoryCache[key];
+    return false;
+  }
+
+  if (cacheData.data === null) {
+    return false;
+  }
+
+  return cacheData;
 };
 
 /**
@@ -37,6 +58,15 @@ export const useCachingFetch: UseCachingFetch = (url) => {
   const [data, setData] = React.useState<Person[] | null>(null);
   const [error, setError] = React.useState<Error | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  const memoryCacheData = getMemoryCache(url);
+  if (memoryCacheData) {
+    return {
+      data: memoryCacheData.data,
+      isLoading: false,
+      error: memoryCacheData.error,
+    };
+  }
 
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
@@ -96,9 +126,34 @@ export const useCachingFetch: UseCachingFetch = (url) => {
  *
  */
 export const preloadCachingFetch = async (url: string): Promise<void> => {
-  throw new Error(
-    'preloadCachingFetch has not been implemented, please read the instructions in DevTask.md',
-  );
+  const expiresAt = Date.now() + SS_CACHE_EXPIRY;
+  try {
+    const response = await fetch(url);
+    const data: Person[] = await response.json();
+    memoryCache[url] = {
+      data,
+      error: null,
+      expiresAt,
+    };
+  } catch (error) {
+    let errorObj: Error | string | null = null;
+    if (typeof error === 'string') {
+      errorObj = new Error(error);
+    }
+    if (error instanceof Error) {
+      errorObj = error;
+    }
+
+    if (!errorObj) {
+      errorObj = new Error('An unknown error occurred');
+    }
+
+    memoryCache[url] = {
+      data: null,
+      error: errorObj,
+      expiresAt,
+    };
+  }
 };
 
 /**
@@ -121,4 +176,9 @@ export const serializeCache = (): string => '';
 
 export const initializeCache = (serializedCache: string): void => {};
 
-export const wipeCache = (): void => {};
+export const wipeCache = (): void => {
+  if (typeof window !== 'undefined') localStorage.clear();
+  Object.keys(memoryCache).forEach((key) => {
+    delete memoryCache[key];
+  });
+};
